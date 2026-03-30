@@ -1,0 +1,2808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CHI 2026 Schedule Planner — Lucas</title>
+<style>
+  :root {
+    --bg: #f5f5f0;
+    --card-bg: #ffffff;
+    --accent: #2563eb;
+    --conflict: #ef4444;
+    --conflict-bg: #fef2f2;
+    --honor: #f59e0b;
+    --text: #1e293b;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --session-bg: #f8fafc;
+    --event-bg: #f0fdf4;
+    --event-border: #86efac;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 2px solid var(--border);
+  }
+  header h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+  }
+  header .subtitle {
+    color: var(--muted);
+    font-size: 1rem;
+  }
+  header .conf-info {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+
+  /* Collapsible Day Sections */
+  .day-section {
+    margin-bottom: 2rem;
+  }
+  .day-section > summary {
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+  }
+  .day-section > summary::-webkit-details-marker { display: none; }
+  .day-section > summary::marker { display: none; content: ""; }
+
+  .day-header {
+    background: var(--text);
+    color: white;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: border-radius 0.2s;
+  }
+  .day-section[open] > summary .day-header {
+    border-radius: 8px 8px 0 0;
+  }
+  .day-header .paper-count {
+    font-weight: 400;
+    font-size: 0.85rem;
+    opacity: 0.8;
+  }
+  .day-header .collapse-icon::after {
+    content: "▸";
+    margin-left: 0.5rem;
+    font-size: 0.9rem;
+    display: inline-block;
+    transition: transform 0.2s;
+  }
+  .day-section[open] > summary .collapse-icon::after {
+    content: "▾";
+  }
+
+  /* Timeline Container */
+  .timeline {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 1.5rem;
+  }
+
+  /* Sub-section header within a day */
+  .sub-header {
+    background: #475569;
+    color: white;
+    padding: 0.5rem 1.25rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.25rem;
+  }
+  .sub-header .paper-count {
+    font-weight: 400;
+    font-size: 0.82rem;
+    opacity: 0.8;
+  }
+
+  /* Time Slot */
+  .time-slot {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    position: relative;
+  }
+  .time-slot:last-child { margin-bottom: 0; }
+
+  .time-label {
+    min-width: 100px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--muted);
+    padding-top: 0.75rem;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .slot-papers {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* Paper Card */
+  .paper-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    transition: box-shadow 0.2s, border-color 0.2s;
+    cursor: pointer;
+    position: relative;
+  }
+  .paper-card:hover {
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    border-color: var(--accent);
+  }
+  .paper-card.has-conflict {
+    border-color: var(--conflict);
+    background: var(--conflict-bg);
+  }
+  .paper-card.has-conflict:hover {
+    border-color: var(--conflict);
+  }
+
+  .paper-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text);
+    margin-bottom: 0.35rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .paper-title a {
+    color: var(--text);
+    text-decoration: none;
+  }
+  .paper-title a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .badge-honor {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  .badge-conflict {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .paper-meta {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 0.35rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+  }
+  .paper-meta span {
+    white-space: nowrap;
+  }
+
+  .paper-authors {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+    font-style: italic;
+  }
+
+  /* Expandable Abstract */
+  .paper-abstract {
+    display: none;
+    font-size: 0.85rem;
+    color: #475569;
+    line-height: 1.65;
+    padding-top: 0.75rem;
+    margin-top: 0.5rem;
+    border-top: 1px solid var(--border);
+  }
+  .paper-card.expanded .paper-abstract {
+    display: block;
+  }
+  .expand-hint {
+    font-size: 0.75rem;
+    color: var(--accent);
+    margin-top: 0.25rem;
+  }
+  .paper-card.expanded .expand-hint { display: none; }
+
+  /* Conference Event Card */
+  .event-card {
+    border: 1px solid var(--event-border);
+    border-radius: 8px;
+    padding: 0.65rem 1.25rem;
+    background: var(--event-bg);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .event-card .event-emoji {
+    font-size: 1.15rem;
+    flex-shrink: 0;
+  }
+  .event-card .event-info {
+    flex: 1;
+  }
+  .event-card .event-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #166534;
+  }
+  .event-card .event-detail {
+    font-size: 0.78rem;
+    color: #4ade80;
+    color: #15803d;
+  }
+
+  /* Session tag */
+  .session-tag {
+    display: inline-block;
+    background: var(--session-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  .legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+  }
+
+  /* Award badge styles (used in Friday) */
+  .badge-best {
+    background: #fef08a;
+    color: #713f12;
+  }
+  .badge-honorable {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  /* Research Themes Section */
+  .themes-section {
+    margin-bottom: 2rem;
+  }
+  .themes-section > summary {
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+  }
+  .themes-section > summary::-webkit-details-marker { display: none; }
+  .themes-section > summary::marker { display: none; content: ""; }
+  .themes-header {
+    background: #0f172a;
+    color: white;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: border-radius 0.2s;
+  }
+  .themes-section[open] > summary .themes-header {
+    border-radius: 8px 8px 0 0;
+  }
+  .themes-header .collapse-icon::after {
+    content: "▸";
+    margin-left: 0.5rem;
+    font-size: 0.9rem;
+  }
+  .themes-section[open] > summary .collapse-icon::after {
+    content: "▾";
+  }
+  .themes-header .paper-count {
+    font-weight: 400;
+    font-size: 0.85rem;
+    opacity: 0.8;
+  }
+  .themes-body {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 1.5rem;
+  }
+  .theme-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 1.25rem;
+  }
+  .theme-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .theme-card-header {
+    padding: 0.6rem 1rem;
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .theme-card-desc {
+    font-size: 0.78rem;
+    opacity: 0.88;
+    font-weight: 400;
+    margin-top: 0.2rem;
+  }
+  .theme-paper-list {
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .theme-paper-item {
+    font-size: 0.82rem;
+    line-height: 1.4;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+  .theme-paper-item a {
+    color: var(--text);
+    text-decoration: none;
+    flex: 1;
+  }
+  .theme-paper-item a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+  .day-tag {
+    display: inline-block;
+    background: #e2e8f0;
+    border-radius: 3px;
+    padding: 0.05rem 0.35rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #475569;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .theme-tag {
+    display: inline-block;
+    font-size: 0.67rem;
+    font-weight: 600;
+    padding: 0.07rem 0.4rem;
+    border-radius: 3px;
+    color: white;
+    opacity: 0.85;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 700px) {
+    body { padding: 1rem; }
+    .time-slot { flex-direction: column; }
+    .time-label { text-align: left; min-width: auto; padding-top: 0; }
+  }
+
+  @media print {
+    body { padding: 0.5rem; }
+    .paper-abstract { display: block !important; }
+    .expand-hint { display: none !important; }
+    .day-section { break-inside: avoid; }
+    .themes-section { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CHI 2026 — My Schedule Planner</h1>
+  <div class="conf-info">April 13–17, 2026 · Barcelona, Spain</div>
+</header>
+
+<div class="legend">
+  <div class="legend-item">🏆 Best Paper</div>
+  <div class="legend-item">🏅 Honorable Mention</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#fee2e2; border-color:#fca5a5;"></div> Time Conflict</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#e0e7ff; border-color:#a5b4fc;"></div> Workshop</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#f0fdf4; border-color:#86efac;"></div> Conference Event</div>
+</div>
+
+<!-- ========== RESEARCH THEMES ========== -->
+<details class="themes-section" open>
+  <summary>
+    <div class="themes-header">
+      <span><span class="collapse-icon"></span> 📚 Research Themes</span>
+      <span class="paper-count">7 categories · click to explore</span>
+    </div>
+  </summary>
+
+  <div class="themes-body">
+    <p style="font-size:0.85rem; color:var(--muted); margin-bottom:1.25rem;">Papers grouped by your research interests. Each paper appears in its most relevant category. Click any title to go to its CHI program page.</p>
+    <div class="theme-grid">
+
+      <!-- 1. Learning by Teaching -->
+      <div class="theme-card">
+        <div class="theme-card-header" style="background:#2563eb;">
+          🎓 Learning by Teaching &amp; Coaching
+          <div class="theme-card-desc">AI as learner/student; peer learning; scaffolding; coaching; reflection-driven learning</div>
+        </div>
+        <div class="theme-paper-list">
+          <div class="theme-paper-item">
+            <span class="day-tag">Fri 🏆</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223079" target="_blank">Novobo: Teachers Peer-Learn Gestures by Teaching a Mentee AI-Agent Together</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Thu</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223222" target="_blank">Human-Human-AI Triadic Programming: Role of AI Agent &amp; Value of Human Partner in Collaborative Learning</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Thu</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223005" target="_blank">Designing AI Peers for Collaborative Mathematical Problem Solving (Participatory Design)</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Thu</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222595" target="_blank">AgentCoach: LLM-Based Adaptive Coaching Feedback for Motor Skill Learning</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Thu</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222905" target="_blank">Hybrid LLM-Embedded Dialogue Agents for Learner Reflection: Theory-Driven Interactions</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Fri 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223089" target="_blank">Designing Scaffolding Cards to Facilitate LLM-Based Socratic Instruction</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Fri 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222501" target="_blank">Will They Try Again? Large-Scale RCT on Scaffolds for Persistence in Intelligent Tutoring</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Tue 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222016" target="_blank">Can LLM-Simulated Practice and Feedback Upskill Human Counselors? (90+ Novice Counselors)</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Vibe Coding -->
+      <div class="theme-card">
+        <div class="theme-card-header" style="background:#7c3aed;">
+          💻 Vibe Coding &amp; AI-Augmented Programming
+          <div class="theme-card-desc">Programming with AI; authorship, intent &amp; agency; verification load; career impact</div>
+        </div>
+        <div class="theme-paper-list">
+          <div class="theme-paper-item">
+            <span class="day-tag">Wed</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222884" target="_blank">Vibe Coding Entanglements: Repositioning Boundaries of Intention, Authorship &amp; Responsibility</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Wed 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223408" target="_blank">When Help Hurts: Verification Load and Fatigue with AI Coding Assistants</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Wed 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222340" target="_blank">From Junior to Senior: Allocating Agency in Agentic AI-Mediated Software Engineering</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Thu</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222297" target="_blank">Programming By Scaffolded Demonstration with Perpend</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Fri 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222941" target="_blank">Barriers Programming Instructors Face During Emergency Pedagogical Redesign for GenAI Tools</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Thu</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223379" target="_blank">Not Everyone Wins with LLMs: AI Literacy in Programmatic Data Science</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Fri</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223228" target="_blank">Data-Prompt Co-Evolution: Growing Test Sets to Refine LLM Behavior</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Tue 🏆</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/221901" target="_blank">RAG Without the Lag: Enabling "What-If" Analysis for Retrieval-Augmented Generation Pipelines</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. AI in Education -->
+      <div class="theme-card">
+        <div class="theme-card-header" style="background:#059669;">
+          📖 AI in Education: Impact &amp; Equity
+          <div class="theme-card-desc">AI's broad role in classrooms; equity; teacher perspectives; AI literacy; policy</div>
+        </div>
+        <div class="theme-paper-list">
+          <div class="theme-paper-item">
+            <span class="day-tag">Fri 🏆</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/221871" target="_blank">When Scaffolding Breaks: LLM Writing Support in Real-Time K-12 EFL Classrooms</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Tue 🏆</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222993" target="_blank">AI Sensing and Intervention in Higher Education: Learning Impacts, Affective Responses &amp; Ethics</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Thu 🏆</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223470" target="_blank">Starting From Scratch Again and Again: Origins of Negative Perceptions of Block-Based Programming</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Fri</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223008" target="_blank">Do Teachers Dream of GenAI Widening Educational (In)equality? K-12 GenAI Education Futures</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Mon 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223177" target="_blank">Situated Imaginaries: Designing AI Futures with Computer Science Teaching Assistants</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Fri</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/221918" target="_blank">Once Upon AI Time: Combining Narrative and Games for Early AI Literacy</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Mon</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/221831" target="_blank">An Empirical Study to Understand How Students Use ChatGPT for Writing Essays</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Thu</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223117" target="_blank">AI-Mediated Feedback Improves Student Revisions: Randomized Trial with FeedbackWriter</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Thu</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223075" target="_blank">EdTech for Last Mile Learners in the Global South: Radios and Mobile Phones</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Fri</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222567" target="_blank">Navigating Uncertainties: How GenAI Developers Document Their Models on Open-Source Platforms</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Social & Agentic AI -->
+      <div class="theme-card">
+        <div class="theme-card-header" style="background:#d97706;">
+          🤖 Social &amp; Agentic AI Systems
+          <div class="theme-card-desc">Multi-agent systems; AI agents in social/collaborative settings; agentic memory</div>
+        </div>
+        <div class="theme-paper-list">
+          <div class="theme-paper-item">
+            <span class="day-tag">Tue 🏆</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223085" target="_blank">Cocoa: Co-Planning and Co-Execution with AI Agents</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Tue 🏆</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223158" target="_blank">CoBRA: Programming Cognitive Bias in Social Agents Using Classic Social Science Experiments</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Tue</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223036" target="_blank">Building Human–Multi-Agent Teams for Creative Works</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Tue</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222438" target="_blank">AI as an Agent and Collaborative Space: GenAI in Small Group Synchronous &amp; Asynchronous Dynamics</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Fri 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/221885" target="_blank">MindfulAgents: Personalizing Mindfulness Meditation via Expert-Aligned Multi-Agent System</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Tue</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222376" target="_blank">RECALLbot: Designing Agentic Memory and Reciprocal Disclosure for Human–Chatbot Relationships</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Wed 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222340" target="_blank">From Junior to Senior: Agency Allocation in Agentic AI-Mediated Software Engineering</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Multidisciplinary Collaboration -->
+      <div class="theme-card">
+        <div class="theme-card-header" style="background:#0d9488;">
+          🔬 Multidisciplinary Collaboration for AI Prototyping
+          <div class="theme-card-desc">Cross-disciplinary teams; co-design of AI systems; convergence; boundary objects</div>
+        </div>
+        <div class="theme-paper-list">
+          <div class="theme-paper-item">
+            <span class="day-tag">Fri 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223274" target="_blank">KNIT: Computational Boundary Objects for Real-Time Convergence in Interdisciplinary Teams</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Fri</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222331" target="_blank">Codesigning Ripplet: LLM-Assisted Assessment Authoring with Teachers' Conceptual Model</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Fri</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222758" target="_blank">"Listen to the Teachers": Research-Based Personas for Translating Classroom Realities into HCI Design</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Tue 🏆</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222930" target="_blank">From Overload to Convergence: Supporting Multi-Issue Human–AI Negotiation with Bayesian Visualization</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Tue</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222904" target="_blank">Can GenAI Move from Individual Use to Collaborative Work? Coordinating GenAI into Newsrooms</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Wed Panel</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/221869" target="_blank">The Global Impact of GenAI on the HCI Landscape: HCI Education, Industry &amp; Funding (Panel)</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. Product Design & Creative Tools -->
+      <div class="theme-card">
+        <div class="theme-card-header" style="background:#be185d;">
+          🎨 Product Design &amp; AI Creativity Tools
+          <div class="theme-card-desc">UI/UX design with AI; creative workflow tools; AI critique; generative design</div>
+        </div>
+        <div class="theme-paper-list">
+          <div class="theme-paper-item">
+            <span class="day-tag">Fri</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223308" target="_blank">ClearFairy: Capturing Creative Workflows via Decision Structuring, In-Situ Questioning &amp; Rationale Inference</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Wed</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222901" target="_blank">Criticmate: Stagewise Human-AI Co-Critique in UI Design through Situation Awareness</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Tue</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223499" target="_blank">Improving User Interface Generation Models from Designer Feedback</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Wed 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222780" target="_blank">Noise Pilot: Enabling Artistic Workflow Composition with Diffusion-Based Image Generation</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Wed</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223000" target="_blank">AI for Creativity: GenAI-Based Approach for Early Concept Design (Impact on Senior Architects)</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Wed</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222701" target="_blank">"Control Is a Trajectory, Not a Point": Conceptualizing Control in Human-AI Co-Creativity</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Thu</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222607" target="_blank">Proactive AI as a Catalyst for Creativity? Human Agency &amp; AI Contribution in Collaborative Story Writing</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Thu</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222577" target="_blank">MuseForge: Enhancing Creative Learning in Digital Museum Education with Generative AI</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Thu</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222871" target="_blank">Tidynote: Always-Clear Notebook Authoring</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7. Human-AI Interaction & Control -->
+      <div class="theme-card">
+        <div class="theme-card-header" style="background:#4338ca;">
+          🧠 Human-AI Interaction, Control &amp; Alignment
+          <div class="theme-card-desc">Prompting; trust; agency; values alignment; conversational dynamics; AI futures</div>
+        </div>
+        <div class="theme-paper-list">
+          <div class="theme-paper-item">
+            <span class="day-tag">Wed 🏆</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222011" target="_blank">Who Controls the Conversation? User Perspectives on Generative AI (LLM) System Prompts</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Wed 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222115" target="_blank">Does My Chatbot Have an Agenda? Human and AI Agency in Human-like Chatbot Interaction</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Mon 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222575" target="_blank">Interaction-Augmented Instruction: Modeling the Synergy of Prompts and Interactions in Human-GenAI Collaboration</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Mon 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222870" target="_blank">TurnStyle: Analyzing Human Conversational Behaviors to Predict Success in LLM-Assisted Tasks</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Mon 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222568" target="_blank">Orca: Browsing at Scale through User-Driven and AI-Facilitated Orchestration Across Malleable Webpages</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Tue 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223539" target="_blank">AI and My Values: User Perceptions of LLMs' Ability to Extract, Embody &amp; Explain Human Values</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Tue 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222732" target="_blank">Understanding the Effects of AI-Assisted Critical Thinking on Human-AI Decision Making</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Wed 🏅</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222702" target="_blank">From Future of Work to Future of Workers: Addressing Asymptomatic AI Harms for Dignified Human-AI Interaction</a>
+          </div>
+          <div class="theme-paper-item">
+            <span class="day-tag">Tue 🏆</span>
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223162" target="_blank">PleaSQLarify: Visual Pragmatic Repair for Natural Language Database Querying</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</details>
+
+<!-- ========== MONDAY, APRIL 13 ========== -->
+<details class="day-section" open>
+  <summary>
+    <div class="day-header">
+      <span><span class="collapse-icon"></span> Monday, April 13</span>
+      <span class="paper-count">7 papers · 6 🏅 + 1 workshop</span>
+    </div>
+  </summary>
+
+  <div class="timeline">
+
+    <!-- Opening Plenary & Keynote -->
+    <div class="time-slot">
+      <div class="time-label">8:30 AM<br>– 10:30 AM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">🎤</div>
+          <div class="event-info">
+            <div class="event-name">Opening Plenary &amp; Keynote</div>
+            <div class="event-detail">Auditorium</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Break & Snacks -->
+    <div class="time-slot">
+      <div class="time-label">10:30 AM<br>– 11:15 AM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">☕</div>
+          <div class="event-info">
+            <div class="event-name">Break &amp; Snacks</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 11:15 - 11:27 — CONFLICT SLOT -->
+    <div class="time-slot">
+      <div class="time-label">11:15 AM<br>– 11:27 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223212" target="_blank">What If Moderation Didn't Mean Suppression? A Case for Personalized Content Transformation</a>
+            🏅
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI Personality</span>
+            <span class="theme-tag" style="background:#be185d;">🎨 Product Design</span>
+            <span>P1 – Room 121</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Rayhan Rashed, Farnaz Jahanbakhsh · University of Michigan</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">
+            Centralized content moderation paradigm both falls short and overreaches: it fails to account for the subjective nature of harm, and it acts with blunt suppression in response to content deemed harmful, even when such content can be salvaged. The authors investigate this through formative interviews, documenting how seemingly benign content becomes harmful due to individual life experiences. Based on these insights, they developed DIY-MOD, a browser extension that operationalizes a new paradigm: personalized content transformation. Operating on a user's own definition of harm, DIY-MOD transforms sensitive elements within content in real-time instead of suppressing the content itself, selecting the most appropriate transformation from a diverse palette — from obfuscation to artistic stylizing — to match the user's specific needs while preserving the content's informational value.
+          </div>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/221831" target="_blank">An Empirical Study to Understand How Students Use ChatGPT for Writing Essays</a>
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Learning, Training, and Self-Development with AI</span>
+            <span class="theme-tag" style="background:#059669;">📖 AI in Education</span>
+            <span>P1 – Room 125</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Andrew Jelson, Daniel Manesh, Alice Jang, Daniel Dunlap, Young-Ho Kim, Sang Won Lee · Virginia Tech, NAVER AI Lab</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">
+            As large language models (LLMs) become widespread, students increasingly turn to systems like ChatGPT for writing tasks. However, how students actually use LLMs for writing remains largely unknown, leaving a limited understanding of their effects on learning. The researchers conducted an online study (n=77) in which students wrote an essay using an in-house ChatGPT, capturing their queries. Through qualitative analysis, they identified the types of assistance students sought, presenting patterns of use ranging from asking for opinions to delegating the entire writing task. They found that students' writing self-efficacy influenced querying patterns, and that levels of ownership and creativity varied depending on usage. This study contributes empirical data to discussions about how writing education should incorporate or regulate LLM-powered tools.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 11:27 - 11:39 -->
+    <div class="time-slot">
+      <div class="time-label">11:27 AM<br>– 11:39 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222568" target="_blank">Orca: Browsing at Scale Through User-Driven and AI-Facilitated Orchestration Across Malleable Webpages</a>
+            🏅
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Interactive Prompting, Chaining, and LLM Orchestration Tools</span>
+            <span class="theme-tag" style="background:#4338ca;">🧠 Human-AI Ctrl</span>
+            <span>P1 – Room 132</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Peiling Jiang, Haijun Xia · UC San Diego</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">
+            Web-based activities span multiple webpages. However, conventional browsers with stacks of tabs cannot support operating and synthesizing large volumes of information across pages. While recent AI systems enable fully automated web browsing and information synthesis, they often diminish user agency and hinder contextual understanding. The authors explore how AI could instead augment user interactions with content across webpages and mitigate cognitive and manual efforts. Through literature on information tasks and web browsing challenges, and an iterative design process, they present novel interactions with their prototype web browser, Orca. Leveraging AI, Orca supports user-driven exploration, operation, organization, and synthesis of web content at scale. To enable browsing at scale, webpages are treated as malleable materials that humans and AI can collaboratively manipulate and compose into a malleable, dynamic, and browser-level workspace. Their evaluation revealed an increased "appetite" for information foraging, enhanced control, and more flexible sensemaking across a broader web information landscape.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 11:51 - 12:03 -->
+    <div class="time-slot">
+      <div class="time-label">11:51 AM<br>– 12:03 PM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222162" target="_blank">Can AI Be a Moral Victim? The Role of Moral Patiency and Ownership Perceptions in Ethical Judgments of Using AI-Generated Content</a>
+            🏅
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Relationships with AI</span>
+            <span class="theme-tag" style="background:#4338ca;">🧠 Human-AI Ctrl</span>
+            <span>P1 – Room 130</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Hyesun Choung, Soojong Kim · Purdue University, UC Davis</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">
+            The growing use of generative AI raises ethical concerns about authorship attribution and plagiarism. This paper examines whether people perceive AI as a moral victim (moral patiency) and how ownership perceptions influence ethical judgments when using AI-generated content. The research contributes to the understanding of how moral considerations extend to AI systems and what role perceived ownership plays in evaluating the ethics of using content created with AI assistance.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 12:03 - 12:15 -->
+    <div class="time-slot">
+      <div class="time-label">12:03 PM<br>– 12:15 PM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222870" target="_blank">TurnStyle: A Framework for Analyzing Human Conversational Behaviors to Predict Success in LLM-Assisted Tasks</a>
+            🏅
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI in Work and Expertise</span>
+            <span class="theme-tag" style="background:#4338ca;">🧠 Human-AI Ctrl</span>
+            <span>P1 – Room 124</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Urvi Awasthi, Lisa Krayer, Daniel Sack · Boston Consulting Group</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">
+            LLMs are widespread across educational and professional environments, often used to tackle tasks beyond simple Q&A. This paper presents TurnStyle, a framework for analyzing human conversational behaviors in multi-turn interactions with LLMs to predict task success. The research contributes methods for understanding how the way people converse with AI systems — their turn-taking patterns, conversational strategies, and interaction styles — relates to whether they ultimately succeed at their goals.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 12:15 - 12:27 — CONFLICT SLOT -->
+    <div class="time-slot">
+      <div class="time-label">12:15 PM<br>– 12:27 PM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222575" target="_blank">Interaction-Augmented Instruction: Modeling the Synergy of Prompts and Interactions in Human-GenAI Collaboration</a>
+            🏅
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Interactive Prompting, Chaining, and LLM Orchestration Tools</span>
+            <span class="theme-tag" style="background:#4338ca;">🧠 Human-AI Ctrl</span>
+            <span>P1 – Room 132</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Leixian Shen, Yifang Wang, Huamin Qu, Xing Xie, Haotian Li · HKUST, Florida State, Microsoft Research Asia</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">
+            Text prompt is the most common way for human-generative AI (GenAI) communication. Though convenient, it is challenging to convey fine-grained and referential intent. One promising solution is to combine text prompts with precise GUI interactions, like brushing and clicking. However, there lacks a formal model to capture synergistic designs between prompts and interactions, hindering their comparison and innovation. To fill this gap, via an iterative and deductive process, the researchers develop the Interaction-Augmented Instruction (IAI) model — a compact entity-relation graph formalizing how the combination of interactions and text prompts enhances human-GenAI communication. With the model, they distill twelve recurring and composable atomic interaction paradigms from prior tools, verifying the model's capability to facilitate systematic design characterization and comparison.
+          </div>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223177" target="_blank">Situated Imaginaries: Designing AI Futures with Computer Science Teaching Assistants</a>
+            🏅
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Learning, Training, and Self-Development with AI</span>
+            <span class="theme-tag" style="background:#059669;">📖 AI in Education</span>
+            <span>P1 – Room 125</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Grace Barkhuff, Ian Pruitt, Vyshnavi Namani, William Gregory Johnson, Anu Bourgeois, Ellen Zegura, Rodrigo Borela, Ben Rydal Shapiro · Georgia Tech, Georgia State University</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">
+            Teaching assistants (TAs) play a critical role in computing and HCI education, yet little is known about how they envision AI in their work. This research investigates the situated imaginaries of computer science teaching assistants — how they design and envision AI futures in the context of their teaching practice. The study contributes insights into the perspectives of a key stakeholder group often overlooked in AI-in-education discussions.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Lunch Break -->
+    <div class="time-slot">
+      <div class="time-label">12:45 PM<br>– 2:15 PM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">🍽️</div>
+          <div class="event-info">
+            <div class="event-name">Lunch Break</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workshop Session 1: 2:15 - 3:45 -->
+    <div class="time-slot">
+      <div class="time-label">2:15 PM<br>– 3:45 PM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" style="border-color:#a5b4fc; background:#eef2ff;" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/214837" target="_blank">Understanding and Engaging Critical Resistance to AI in Education</a>
+            <span class="badge" style="background:#e0e7ff; color:#3730a3;">Workshop · Part 1</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Workshop</span>
+            <span class="theme-tag" style="background:#059669;">📖 AI in Education</span>
+            <span>P1 – Room 122</span>
+            <span>90 min</span>
+            <span><a href="https://criticalaied.netlify.app" target="_blank" style="color:var(--accent);">Workshop website</a></span>
+          </div>
+          <div class="paper-authors">Dinesh Ayyappan (UPF Barcelona), Davinia Hernández-Leo (UPF), Robert Larson (Singapore American School), Leaf Elhai (Learnlife), Julia Chatain (ETH Zürich), Grace Li (U. of Chicago)</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">
+            The push to integrate Generative AI (GenAI) into education is framed by its advocates as an inevitable transformation. This workshop invites researchers, educators, and designers to discuss, from a place of self-determination, the critical questions surrounding GenAI in education. Topics include: where the ideal boundaries should be between where GenAI products are welcome and where they are not; what pedagogical considerations should guide their use; what metrics and methodologies are most useful for assessing effectiveness; how to adjust design processes to ensure GenAI tools serve educational goals; and how to balance the voices of students, parents, teachers, administrators, and industry.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Break & Snacks -->
+    <div class="time-slot">
+      <div class="time-label">3:45 PM<br>– 4:30 PM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">☕</div>
+          <div class="event-info">
+            <div class="event-name">Break &amp; Snacks</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workshop Session 2: 4:30 - 6:00 -->
+    <div class="time-slot">
+      <div class="time-label">4:30 PM<br>– 6:00 PM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" style="border-color:#a5b4fc; background:#eef2ff;">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/214837" target="_blank">Understanding and Engaging Critical Resistance to AI in Education</a>
+            <span class="badge" style="background:#e0e7ff; color:#3730a3;">Workshop · Part 2</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Workshop</span>
+            <span>P1 – Room 122</span>
+            <span>90 min</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Reception -->
+    <div class="time-slot">
+      <div class="time-label">6:00 PM<br>onwards</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">🎉</div>
+          <div class="event-info">
+            <div class="event-name">Reception: Demos, Exhibits, Food &amp; Drinks</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</details>
+
+<!-- ========== TUESDAY, APRIL 14 ========== -->
+<details class="day-section" open>
+  <summary>
+    <div class="day-header">
+      <span><span class="collapse-icon"></span> Tuesday, April 14</span>
+      <span class="paper-count">16 papers · 6 🏆 · 3 🏅</span>
+    </div>
+  </summary>
+
+  <div class="timeline">
+
+    <!-- Morning Papers 9:00–10:30 -->
+    <div class="sub-header">
+      <span>Morning · Paper Sessions</span>
+      <span class="paper-count">11 papers · 6 sessions</span>
+    </div>
+
+    <!-- 9:00 - 9:12 — CONFLICT -->
+    <div class="time-slot" style="margin-top:1rem;">
+      <div class="time-label">9:00 AM<br>– 9:12 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223085" target="_blank">Cocoa: Co-Planning and Co-Execution with AI Agents</a>
+            🏆
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI Collaboration in Practice</span>
+            <span class="theme-tag" style="background:#d97706;">🤖 Social Agentic AI</span>
+            <span>P1 – Room 128</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">K.J. Kevin Feng, Kevin Pu, Matt Latzke, Tal August, Pao Siangliulue, Jonathan Bragg, Daniel S Weld, Amy X. Zhang, Joseph Chee Chang · UW, U Toronto, AI2, UIUC</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">As AI agents take on increasingly long-running tasks involving sophisticated planning and execution, there is a growing need for interfaces that support effective human-agent collaboration. This paper presents Cocoa, a system for co-planning and co-execution with AI agents, enabling users to participate meaningfully in the planning process while maintaining oversight during execution.</div>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/221901" target="_blank">RAG Without the Lag: Enabling "What-If" Analysis for Retrieval-Augmented Generation Pipelines</a>
+            🏆
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Conversational AI</span>
+            <span class="theme-tag" style="background:#7c3aed;">💻 Vibe Coding</span>
+            <span>P1 – Room 125</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Quentin Romero Lauro, Shreya Shankar, Sepanta Zeighami, Aditya Parameswaran · U Pittsburgh, UC Berkeley</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Retrieval-augmented generation (RAG) pipelines have become the de-facto approach for building AI assistants. This paper enables "what-if" analysis for RAG pipelines, allowing developers and users to rapidly explore how changes to retrieval configurations affect generation quality without the typical computational overhead.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 9:12 - 9:24 — CONFLICT -->
+    <div class="time-slot">
+      <div class="time-label">9:12 AM<br>– 9:24 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222930" target="_blank">From Overload to Convergence: Supporting Multi-Issue Human–AI Negotiation with Bayesian Visualization</a>
+            🏆
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI Collaboration in Practice</span>
+            <span class="theme-tag" style="background:#0d9488;">🔬 Multidiscip. Collab</span>
+            <span>P1 – Room 128</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Mehul Parmar, Chaklam Silpasuwanchai · Asian Institute of Technology</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">As AI systems increasingly mediate negotiations, understanding how the number of negotiated issues impacts outcomes and user experience is critical. This paper explores supporting multi-issue human–AI negotiation through Bayesian visualization, helping users move from information overload to convergence on mutually beneficial outcomes.</div>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223162" target="_blank">PleaSQLarify: Visual Pragmatic Repair for Natural Language Database Querying</a>
+            🏆
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Personalization and Human-AI Alignment</span>
+            <span class="theme-tag" style="background:#4338ca;">🧠 Human-AI Ctrl</span>
+            <span>P1 – Room 130</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Robin Shing Moon Chan, Rita Sevastjanova, Mennatallah El-Assady · ETH Zürich</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Natural language database interfaces broaden data access, yet they remain brittle under input ambiguity. PleaSQLarify introduces visual pragmatic repair to help users resolve ambiguities in natural language queries to databases, improving the reliability of NL-to-SQL systems through interactive clarification.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 9:24 - 9:36 -->
+    <div class="time-slot">
+      <div class="time-label">9:24 AM<br>– 9:36 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223499" target="_blank">Improving User Interface Generation Models from Designer Feedback</a>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Personalization and Human-AI Alignment</span>
+            <span class="theme-tag" style="background:#be185d;">🎨 Product Design</span>
+            <span>P1 – Room 130</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Jason Wu, Amanda Swearngin, Arun Krishnavajjala, Alan Leung, Jeffrey Nichols, Titus Barik · Apple, Purdue, George Mason</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Despite being trained on vast amounts of data, most LLMs are unable to reliably generate well-designed user interfaces. This paper explores how designer feedback can be leveraged to improve UI generation models, closing the gap between AI-generated and professionally designed interfaces.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 9:36 - 9:48 — CONFLICT -->
+    <div class="time-slot">
+      <div class="time-label">9:36 AM<br>– 9:48 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222016" target="_blank">Can LLM-Simulated Practice and Feedback Upskill Human Counselors? A Randomized Study with 90+ Novice Counselors</a>
+            🏅
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI Collaboration in Practice</span>
+            <span class="theme-tag" style="background:#2563eb;">🎓 Lrn by Teaching</span>
+            <span>P1 – Room 128</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Ryan Louie, Raj Sanjay Shah, Ifdita Hasan Orney, Juan Pablo Pacheco, Emma Brunskill, Diyi Yang · Stanford, Georgia Tech</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">The growing demand for accessible mental health support requires training more counselors, yet existing training methods are resource-intensive. This randomized study with 90+ novice counselors examines whether LLM-simulated practice sessions and feedback can effectively upskill human counselors in therapeutic techniques.</div>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223036" target="_blank">Building Human–Multi-Agent Teams for Creative Works</a>
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI Systems for Human Goals</span>
+            <span class="theme-tag" style="background:#d97706;">🤖 Social Agentic AI</span>
+            <span>P1 – Room 122</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Hyunseung Lim, Dasom Choi, Sooyohn Nam, Bogoan Kim, Hwajung Hong · KAIST, Chungbuk National</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Team-based collaboration is a cornerstone of modern creative work. Recent advances in generative AI enable multi-agent systems that can take on diverse roles. This paper explores how to build effective human–multi-agent teams for creative works, studying the dynamics and design patterns that emerge.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 9:48 - 10:00 -->
+    <div class="time-slot">
+      <div class="time-label">9:48 AM<br>– 10:00 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222904" target="_blank">Can GenAI Move from Individual Use to Collaborative Work? Experiences, Challenges, and Opportunities of Coordinating GenAI into Collaborative Newswork</a>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">The Workplace</span>
+            <span class="theme-tag" style="background:#0d9488;">🔬 Multidiscip. Collab</span>
+            <span>P1 – Room 120</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Qing Xiao, Qing Hu, Jingjia Xiao, Hancheng Cao, Hong Shen · CMU, UCSD, Emory</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Generative AI (GenAI) is reshaping work, but adoption remains largely individual and experimental rather than systematically coordinated. This paper examines the experiences, challenges, and opportunities of coordinating GenAI into collaborative newswork, studying how teams integrate AI tools into their collective workflows.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 10:00 - 10:12 -->
+    <div class="time-slot">
+      <div class="time-label">10:00 AM<br>– 10:12 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223539" target="_blank">AI and My Values: User Perceptions of LLMs' Ability to Extract, Embody, and Explain Human Values from Casual Conversations</a>
+            🏅
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Role Play, Creativity and AI</span>
+            <span class="theme-tag" style="background:#4338ca;">🧠 Human-AI Ctrl</span>
+            <span>P1 – Room 129</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Bhada Yun, Renn Su, April Yi Wang · ETH Zürich, Stanford</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Does AI understand human values? While this remains an open philosophical question, this paper takes a pragmatic approach, studying user perceptions of LLMs' ability to extract, embody, and explain human values from casual conversations. The research explores how well AI systems can identify what matters to people through everyday dialogue.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 10:12 - 10:24 — CONFLICT -->
+    <div class="time-slot">
+      <div class="time-label">10:12 AM<br>– 10:24 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223158" target="_blank">CoBRA: Programming Cognitive Bias in Social Agents Using Classic Social Science Experiments</a>
+            🏆
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI Systems for Human Goals</span>
+            <span class="theme-tag" style="background:#d97706;">🤖 Social Agentic AI</span>
+            <span>P1 – Room 122</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Xuan Liu, HaoYang Shang, Haojian Jin · UC San Diego, Shanghai Jiao Tong</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">This paper introduces CoBRA, a novel toolkit for systematically specifying agent behavior in LLM-based social simulations. Drawing on classic social science experiments, CoBRA enables researchers to program cognitive biases into social agents, enabling more realistic and controlled simulations of human social behavior.</div>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222438" target="_blank">AI as an Agent and Collaborative Space: Exploring the role of Generative AI in Small Group Synchronous and Asynchronous Collaborative Dynamics</a>
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Collaborating with AI</span>
+            <span class="theme-tag" style="background:#d97706;">🤖 Social Agentic AI</span>
+            <span>Auditorium</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Haowei Xu, Ahmed Kharrufa, Ellis Solaiman, Vasilis Vlachokyriakos · Newcastle University</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">While Generative AI (GenAI) systems are designed primarily for individual use, it is increasingly important to understand their role in group settings. This paper explores how GenAI functions as both an agent and a collaborative space in small group synchronous and asynchronous dynamics.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Break & Snacks -->
+    <div class="time-slot">
+      <div class="time-label">10:30 AM<br>– 11:15 AM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">☕</div>
+          <div class="event-info">
+            <div class="event-name">Break &amp; Snacks</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Late Morning Papers 11:15–12:45 -->
+    <div class="sub-header">
+      <span>Late Morning · Paper Sessions</span>
+      <span class="paper-count">5 papers · 3 sessions</span>
+    </div>
+
+    <!-- 11:15 - 11:27 -->
+    <div class="time-slot" style="margin-top:1rem;">
+      <div class="time-label">11:15 AM<br>– 11:27 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222993" target="_blank">AI Sensing and Intervention in Higher Education: Student Perceptions of Learning Impacts, Affective Responses, and Ethical Priorities</a>
+            🏆
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Generative AI in Education</span>
+            <span class="theme-tag" style="background:#059669;">📖 AI in Education</span>
+            <span>P1 – Room 120</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Bingyi Han, Ying Ma, Simon Coghlan, Dana McKay, George Buchanan, Wally Smith · U Melbourne, RMIT</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">AI technologies that sense student attention and emotions to enable more personalised teaching interventions are gaining traction in higher education. This paper examines student perceptions of the learning impacts, affective responses, and ethical priorities surrounding AI sensing and intervention systems in university settings.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 11:51 - 12:03 -->
+    <div class="time-slot">
+      <div class="time-label">11:51 AM<br>– 12:03 PM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222267" target="_blank">Exploring the Design and Impact of Interactive Worked Examples for Learners with Varying Prior Knowledge</a>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Generative AI in Education</span>
+            <span class="theme-tag" style="background:#2563eb;">🎓 Lrn by Teaching</span>
+            <span>P1 – Room 120</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Sutapa Dey Tithi, Xiaoyi Tian, Ally Limke, Min Chi, Tiffany Barnes · NC State</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Tutoring systems improve learning through tailored interventions, such as worked examples, but often fail to account for varying prior knowledge levels. This paper explores the design and impact of interactive worked examples that adapt to learners' existing knowledge, studying how different approaches affect learning outcomes.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 12:03 - 12:15 -->
+    <div class="time-slot">
+      <div class="time-label">12:03 PM<br>– 12:15 PM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223455" target="_blank">AI meets Mathematics Education: Supporting Instructors in Large Mathematics Classes with Context-Aware AI</a>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Generative AI in Education</span>
+            <span class="theme-tag" style="background:#059669;">📖 AI in Education</span>
+            <span>P1 – Room 120</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Jérémy Valentin Barghorn, Anna Sotnikova, Sacha Friedli, Antoine Bosselut · EPFL</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Large-enrollment university courses face persistent challenges in providing timely and scalable instructional support. This paper presents a context-aware AI system designed to support instructors in large mathematics classes, helping them address student questions and provide feedback at scale.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 12:15 - 12:27 -->
+    <div class="time-slot">
+      <div class="time-label">12:15 PM<br>– 12:27 PM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222376" target="_blank">RECALLbot: Designing Agentic Memory and Reciprocal Disclosure for Human–Chatbot Relationships</a>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Human Behavior with AI Systems</span>
+            <span class="theme-tag" style="background:#d97706;">🤖 Social Agentic AI</span>
+            <span>M2 – Room M211/212</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Zhaojun Jiang, Chunyuan Zheng, Hongyi Chen, Liuqing Chen · Zhejiang University</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Social chatbots are increasingly studied for their benefits in providing companionship and emotional support. This paper presents RECALLbot, which designs agentic memory and reciprocal disclosure mechanisms to foster deeper, more meaningful human–chatbot relationships through mutual sharing and remembering.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 12:27 - 12:39 -->
+    <div class="time-slot">
+      <div class="time-label">12:27 PM<br>– 12:39 PM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222732" target="_blank">Understanding the Effects of AI-Assisted Critical Thinking on Human-AI Decision Making</a>
+            🏅
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Human-AI Decision Making</span>
+            <span class="theme-tag" style="background:#4338ca;">🧠 Human-AI Ctrl</span>
+            <span>P1 – Room 134</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Harry Yizhou Tian, Hasan Amin, Ming Yin · Purdue University</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Despite the growing prevalence of human-AI decision making, the human-AI team's decision performance often falls short of expectations. This paper studies how AI-assisted critical thinking interventions can improve the quality of human-AI collaborative decision making.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Lunch Break -->
+    <div class="time-slot">
+      <div class="time-label">12:45 PM<br>– 2:15 PM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">🍽️</div>
+          <div class="event-info">
+            <div class="event-name">Lunch Break</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Extended Program -->
+    <div class="time-slot">
+      <div class="time-label">2:15 PM<br>– 3:45 PM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">📋</div>
+          <div class="event-info">
+            <div class="event-name">Extended Program</div>
+            <div class="event-detail">Panels, SIGs, Workshops, Courses</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Job Fair + Break -->
+    <div class="time-slot">
+      <div class="time-label">3:45 PM<br>– 4:30 PM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">💼</div>
+          <div class="event-info">
+            <div class="event-name">Job Fair + Break &amp; Snacks</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Extended Program 2 -->
+    <div class="time-slot">
+      <div class="time-label">4:30 PM<br>– 6:00 PM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">📋</div>
+          <div class="event-info">
+            <div class="event-name">Extended Program</div>
+            <div class="event-detail">Panels, SIGs, Workshops, Courses</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</details>
+
+<!-- ========== WEDNESDAY, APRIL 15 ========== -->
+<details class="day-section" open>
+  <summary>
+    <div class="day-header">
+      <span><span class="collapse-icon"></span> Wednesday, April 15</span>
+      <span class="paper-count">11 papers · 2 🏆 · 5 🏅 + 1 panel</span>
+    </div>
+  </summary>
+
+  <div class="timeline">
+
+    <!-- Morning Papers 9:00–10:30 -->
+    <div class="sub-header">
+      <span>Morning · Paper Sessions</span>
+      <span class="paper-count">9 papers · multiple sessions</span>
+    </div>
+
+    <!-- 9:00 - 9:12 -->
+    <div class="time-slot" style="margin-top:1rem;">
+      <div class="time-label">9:00 AM<br>– 9:12 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223000" target="_blank">AI for Creativity: A GenAI-Based Approach for Early Concept Design and Its Impact on Senior Architects</a>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI for Task Augmentation</span>
+            <span class="theme-tag" style="background:#be185d;">🎨 Product Design</span>
+            <span>Area 1+2+3 · Theatre</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Jiajuan Li, Xia Wang, Chengzhong Liu, Chen Yaxin, Le Fang, Yingqing Xu, Lie Zhang, Kun-Pyo Lee, Stephen Jia Wang · Hong Kong Polytechnic University, Tsinghua University, Hong Kong AiD Lab</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Senior architects are pivotal in shaping architectural projects, yet integrating Generative AI (GenAI) into their early concept design workflow remains underexplored. This paper presents a GenAI-based approach tailored for senior architects, studying how it impacts their concept design process, creative confidence, and professional identity during the early ideation phase.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 9:12 - 9:24 -->
+    <div class="time-slot">
+      <div class="time-label">9:12 AM<br>– 9:24 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222011" target="_blank">Who Controls the Conversation? User Perspectives On Generative AI (LLM) System Prompts</a>
+            🏆
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Conversational AI, Agency and Control</span>
+            <span class="theme-tag" style="background:#4338ca;">🧠 Human-AI Ctrl</span>
+            <span>P1 – Room 118</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Anna Neumann, Yulu Pi, Jatinder Singh · University Duisburg-Essen, University of Warwick, University of Cambridge</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">System prompts — instructions that shape the behaviour of generative AI systems — strongly influence what users can and cannot do. Yet users are often unaware of their existence or content. This Best Paper investigates user perspectives on LLM system prompts, examining how people understand, react to, and reason about the hidden instructions that constrain their AI interactions.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 9:36 - 9:48 — CONFLICT -->
+    <div class="time-slot">
+      <div class="time-label">9:36 AM<br>– 9:48 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222701" target="_blank">"Control Is a Trajectory, Not a Point": Conceptualizing Control in Human-AI Co-Creativity</a>
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI in Practice</span>
+            <span class="theme-tag" style="background:#be185d;">🎨 Product Design</span>
+            <span>P1 – Room 122</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Alayt Issak, Jeba Rezwana, Casper Harteveld · Northeastern University, Towson University</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Control is a critical yet underexplored concept in human-AI co-creativity. This paper conceptualizes control as a dynamic trajectory rather than a fixed point, offering a new framework for understanding how control shifts, negotiated, and experienced over the course of human-AI creative collaboration.</div>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222115" target="_blank">Does My Chatbot Have an Agenda? Understanding Human and AI Agency in Human-Human-like Chatbot Interaction</a>
+            🏅
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Conversational AI, Agency and Control</span>
+            <span class="theme-tag" style="background:#4338ca;">🧠 Human-AI Ctrl</span>
+            <span>P1 – Room 118</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Bhada Yun, Evgenia Taranova, April Yi Wang · ETH Zürich, University of Bergen</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">As AI chatbots shift from tools to companions, critical questions arise: who controls the conversation, and whose agenda does it serve? This Honorable Mention paper investigates how users perceive and respond to human and AI agency in interactions with human-like chatbots, exploring the blurred boundaries between assistant and agent.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 9:48 - 10:00 — THREE-WAY CONFLICT -->
+    <div class="time-slot">
+      <div class="time-label">9:48 AM<br>– 10:00 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222884" target="_blank">Vibe Coding Entanglements – Repositioning Boundaries of Intention, Authorship, and Responsibility in Programming with Generative AI</a>
+            <span class="badge badge-conflict">Conflict ×3</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI for Task Augmentation</span>
+            <span class="theme-tag" style="background:#7c3aed;">💻 Vibe Coding</span>
+            <span>Area 1+2+3 · Theatre</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Jakob Tholander, Martin Jonsson · Stockholm University, Södertörn University</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Vibe Coding is a co-constituted form of programming through which humans and AI tools become entangled. This paper repositions the boundaries of intention, authorship, and responsibility in programming with Generative AI, examining how "vibing" with AI changes what it means to be a programmer and who or what is responsible for the resulting code.</div>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222780" target="_blank">Noise Pilot: Enabling Artistic Workflow Composition with Diffusion-Based Image Generation</a>
+            🏅
+            <span class="badge badge-conflict">Conflict ×3</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Designing Creative GenAI Tools</span>
+            <span class="theme-tag" style="background:#be185d;">🎨 Product Design</span>
+            <span>P1 – Room 115</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">James Smith, Shm Garanganao Almeda, Timothy J. Aveni, Anya Agarwal, Bjoern Hartmann · UC Berkeley</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Creativity support tools increasingly include image-generation features, but the underlying diffusion model processes remain opaque to artists. Noise Pilot enables artistic workflow composition by exposing and making manipulable the diffusion process, giving artists finer-grained control over AI image generation while preserving their creative intentions.</div>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223408" target="_blank">When Help Hurts: Verification Load and Fatigue with AI Coding Assistants</a>
+            🏅
+            <span class="badge badge-conflict">Conflict ×3</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">HCAI and Collaboration</span>
+            <span class="theme-tag" style="background:#7c3aed;">💻 Vibe Coding</span>
+            <span>P1 – Room 130</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Guangrui Fan, Dandan Liu, Lihu Pan, Rui Zhang · Taiyuan University of Science and Technology, Universiti Malaya</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">AI coding assistants help, but developers still spend significant effort verifying model output. This Honorable Mention paper isolates and measures the phenomenon of verification load — the cognitive burden of checking AI-generated code — and shows how it leads to fatigue, exploring design implications for more trustworthy AI coding tools.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 10:00 - 10:12 -->
+    <div class="time-slot">
+      <div class="time-label">10:00 AM<br>– 10:12 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222901" target="_blank">Criticmate: Stagewise Human-AI Co-Critique in UI Design through Situation Awareness</a>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI for Task Augmentation</span>
+            <span class="theme-tag" style="background:#be185d;">🎨 Product Design</span>
+            <span>Area 1+2+3 · Theatre</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Jisu Ko, Jinyoung Choi, Cielo Morales, Dajung Kim, Minsam Ko · Hanyang University, UNIST</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">AI tools are increasingly used for UI evaluation, yet most treat evaluation as a single-pass, black-box process. Criticmate introduces a stagewise human-AI co-critique approach that leverages situation awareness, enabling designers and AI to iteratively assess and refine UI designs together across multiple evaluation stages.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 10:12 - 10:24 -->
+    <div class="time-slot">
+      <div class="time-label">10:12 AM<br>– 10:24 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222966" target="_blank">"Social Media Killed Our Generation": Teenagers' Felt Experiences of Harm on Social Media</a>
+            🏆
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Teenagers &amp; Technology</span>
+            <span class="theme-tag" style="background:#4338ca;">🧠 Human-AI Ctrl</span>
+            <span>P1 – Room 121</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Ritika Gairola, Colin M. Gray, Jingxin Dong, Kyung Jin Jeong, Ege Otenen, Juan J. Sarria · Indiana University</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Social media platforms are deeply embedded in teenagers' daily lives, shaping their identities, relationships, and mental health. This Best Paper investigates teenagers' felt experiences of harm on social media — centering their own voices and emotional accounts — to build a richer, more grounded understanding of how platform harms are experienced and internalized by young people.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Break & Snacks -->
+    <div class="time-slot">
+      <div class="time-label">10:30 AM<br>– 11:15 AM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">☕</div>
+          <div class="event-info">
+            <div class="event-name">Break &amp; Snacks</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Late Morning Papers 11:15–12:45 -->
+    <div class="sub-header">
+      <span>Late Morning · Paper Sessions</span>
+      <span class="paper-count">2 papers · Envisioning the Future</span>
+    </div>
+
+    <!-- 11:39 - 11:51 -->
+    <div class="time-slot" style="margin-top:1rem;">
+      <div class="time-label">11:39 AM<br>– 11:51 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222340" target="_blank">From Junior to Senior: Allocating Agency and Navigating Professional Growth in Agentic AI-Mediated Software Engineering</a>
+            🏅
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Envisioning the Future</span>
+            <span class="theme-tag" style="background:#7c3aed;">💻 Vibe Coding</span>
+            <span>P1 – Room 112</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Dana Feng, Bhada Yun, April Yi Wang · ETH Zürich</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Juniors enter as AI-natives; seniors adapted mid-career. AI is not just changing how engineers code — it's reshaping career trajectories and the meaning of professional growth. This Honorable Mention paper explores how software engineers at different career stages allocate agency to AI tools and navigate professional identity and skill development in an era of agentic AI.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 12:03 - 12:15 -->
+    <div class="time-slot">
+      <div class="time-label">12:03 PM<br>– 12:15 PM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222702" target="_blank">From Future of Work to Future of Workers: Addressing Asymptomatic AI Harms to Foster Dignified Human-AI Interaction</a>
+            🏅
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Envisioning the Future</span>
+            <span class="theme-tag" style="background:#4338ca;">🧠 Human-AI Ctrl</span>
+            <span>P1 – Room 112</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Upol Ehsan, Samir Passi, Koustuv Saha, Todd McNutt, Mark O Riedl, Sara Alcorn · Northeastern University, Microsoft, UIUC, Johns Hopkins, Georgia Tech, University of Minnesota</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">In the future of work discourse, AI is touted as the ultimate productivity amplifier. Yet, beneath the surface, AI creates subtle, "asymptomatic" harms — harms that go unnoticed until they compound. This Honorable Mention paper shifts focus from the future of work to the future of workers, addressing these hidden harms to foster more dignified human-AI interaction.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Lunch Break -->
+    <div class="time-slot">
+      <div class="time-label">12:45 PM<br>– 2:15 PM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">🍽️</div>
+          <div class="event-info">
+            <div class="event-name">Lunch Break</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel 2:15–3:45 -->
+    <div class="time-slot">
+      <div class="time-label">2:15 PM<br>– 3:45 PM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')" style="border-color:#c4b5fd; background:#faf5ff;">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/221869" target="_blank">The Global Impact of Generative AI on the HCI Landscape: International Perspectives on HCI Education, Industry Dynamics, and Funding Considerations</a>
+            <span class="badge" style="background:#ede9fe; color:#5b21b6;">Panel · 90 min</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Panel</span>
+            <span class="theme-tag" style="background:#0d9488;">🔬 Multidiscip. Collab</span>
+            <span>P1 – Room 117</span>
+            <span>90 min</span>
+          </div>
+          <div class="paper-authors">Guo Freeman, Cliff Lampe, Elizabeth D Mynatt, Heloisa Candello, Kori Inkpen, Nitesh Goyal, Karrie Karahalios, Xiaojuan Ma, Paweł W. Woźniak · Clemson, U Michigan, Northeastern, IBM Research, Microsoft Research, Google Research, MIT Media Lab, HKUST, TU Wien</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">In recent years, AI-related research has boomed across both academia and industry at CHI and beyond. This panel brings together international perspectives to examine how Generative AI is transforming the HCI landscape — from education and curriculum design to industry dynamics and funding — and what this means for the future of HCI as a field.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Break & Snacks -->
+    <div class="time-slot">
+      <div class="time-label">3:45 PM<br>– 4:30 PM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">☕</div>
+          <div class="event-info">
+            <div class="event-name">Break &amp; Snacks</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIGCHI Town Hall -->
+    <div class="time-slot">
+      <div class="time-label">4:30 PM<br>– 6:00 PM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">🏛️</div>
+          <div class="event-info">
+            <div class="event-name">SIGCHI Town Hall</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</details>
+
+<!-- ========== THURSDAY, APRIL 16 ========== -->
+<details class="day-section" open>
+  <summary>
+    <div class="day-header">
+      <span><span class="collapse-icon"></span> Thursday, April 16</span>
+      <span class="paper-count">16 papers · 1 🏆 · 2 🏅</span>
+    </div>
+  </summary>
+
+  <div class="timeline">
+
+    <!-- Morning Papers 9:00–10:30 -->
+    <div class="sub-header">
+      <span>Morning · Paper Sessions</span>
+      <span class="paper-count">9 papers · multiple sessions</span>
+    </div>
+
+    <!-- 9:00–9:12 — THREE-WAY CONFLICT -->
+    <div class="time-slot" style="margin-top:1rem;">
+      <div class="time-label">9:00 AM<br>– 9:12 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222369" target="_blank">Unleashing Personalized Museum Experiences: Insights from Comparative Structured Observation of Museo* Design Alternatives</a>
+            <span class="badge badge-conflict">Conflict ×3</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI and Interactive Tools for the Arts</span>
+            <span class="theme-tag" style="background:#be185d;">🎨 Product Design</span>
+            <span>Auditorium</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Stéphanie Rey, Anke M. Brock, Nadine Couture · Berger-Levrault, ENAC, ESTIA</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Museums aim to personalize visits by offering tailored content to encourage visitors to return. This paper presents a comparative structured observation study of Museo* design alternatives, extracting insights about how different AI-driven personalization approaches affect visitor engagement and experience.</div>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223222" target="_blank">Human-Human-AI Triadic Programming: Uncovering the Role of AI Agent and the Value of Human Partner in Collaborative Learning</a>
+            <span class="badge badge-conflict">Conflict ×3</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Educational Support</span>
+            <span class="theme-tag" style="background:#2563eb;">🎓 Lrn by Teaching</span>
+            <span>P1 – Room 121</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Taufiq Daryanto, Xiaohan Ding, Kaike Ping, Lance T Wilhelm, Yan Chen, Chris Brown, Eugenia H Rho · Virginia Tech</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">As AI assistance becomes embedded in programming practice, this paper uncovers the dynamics of human-human-AI triadic programming — a configuration where two human learners collaborate alongside an AI agent. The study reveals the distinct roles each player takes and what the human partner uniquely contributes to the collaborative learning experience.</div>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222595" target="_blank">AgentCoach: LLM-Based Adaptive Coaching Feedback for Motor Skill Learning</a>
+            <span class="badge badge-conflict">Conflict ×3</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Interactive Systems for Teaching, Learning, and Concept Formation</span>
+            <span class="theme-tag" style="background:#2563eb;">🎓 Lrn by Teaching</span>
+            <span>P1 – Room 134</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Dizhi Ma, Jiakun Yu, Xinyi Wang, Xiyun Hu, Liang He, Sooyeon Jeong, Karthik Ramani · Purdue, UT Dallas</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">AgentCoach is an LLM-powered system that provides adaptive feedback for motor skill learning. By analyzing movement data and applying pedagogical strategies, AgentCoach delivers real-time, personalized coaching that adjusts to the learner's progression, bridging AI capabilities with the nuanced demands of physical skill acquisition.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 9:12–9:24 -->
+    <div class="time-slot">
+      <div class="time-label">9:12 AM<br>– 9:24 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222297" target="_blank">Programming By Scaffolded Demonstration with Perpend</a>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Interactive Systems for Teaching, Learning, and Concept Formation</span>
+            <span class="theme-tag" style="background:#7c3aed;">💻 Vibe Coding</span>
+            <span>P1 – Room 134</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Angela Bi, Eric Rawn, Justin Lubin, Sarah E. Chasins · UC Berkeley</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Output-centric programming paradigms such as Direct Manipulation Programming and Programming By Demonstration lower barriers to automation. Perpend extends these by adding scaffolded demonstration — guiding users step-by-step through examples — to help them build programs without needing to write code from scratch.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 9:24–9:36 — CONFLICT -->
+    <div class="time-slot">
+      <div class="time-label">9:24 AM<br>– 9:36 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222607" target="_blank">Proactive AI as a Catalyst for Creativity? Balancing Human Agency and AI Contribution in Collaborative Story Writing</a>
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI and Interactive Tools for the Arts</span>
+            <span class="theme-tag" style="background:#be185d;">🎨 Product Design</span>
+            <span>Auditorium</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Yiwen Yin, Mingze Wu, Ruijie Huang, Xin Tong, Junyu Zhou, Chun Yu, Yuanchun Shi · Tsinghua, Stanford, BUPT, UMich</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">LLMs hold promise for supporting creative writing, yet the role of proactive AI suggestions in collaborative story writing remains unclear. This paper examines how proactive AI contributions can serve as a catalyst for creativity while maintaining human agency, exploring the design tensions between helpful AI prompting and authorial control.</div>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222871" target="_blank">Tidynote: Always-Clear Notebook Authoring</a>
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Interactive Systems for Teaching, Learning, and Concept Formation</span>
+            <span class="theme-tag" style="background:#be185d;">🎨 Product Design</span>
+            <span>P1 – Room 134</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Ruanqianqian (Lisa) Huang, Brian Hempel, Yining Cao, James Hollan, Haijun Xia, Sorin Lerner · UC San Diego</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Clarity is one of the top quality attributes notebook users value, yet notebooks quickly become cluttered and hard to follow. Tidynote introduces always-clear notebook authoring — a system that continuously maintains legibility by organizing, summarizing, and structuring notebook content as it is written.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 10:00–10:12 -->
+    <div class="time-slot">
+      <div class="time-label">10:00 AM<br>– 10:12 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223481" target="_blank">'Show It, Don't Just Say It': The Complementary Effects of Instruction Multimodality for Software Guidance</a>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Educational Support</span>
+            <span class="theme-tag" style="background:#059669;">📖 AI in Education</span>
+            <span>P1 – Room 121</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Emran Poh, Yueyue Hou, Tianyi Zhang, Jiannan Li · Singapore Management University</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Designing adaptive tutoring systems for software learning presents challenges in determining appropriate instruction modalities. This paper investigates the complementary effects of multimodal instructions — combining text, visuals, and demonstrations — finding that "showing" guidance alongside "saying" it significantly improves learning outcomes.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 10:12–10:24 — CONFLICT -->
+    <div class="time-slot">
+      <div class="time-label">10:12 AM<br>– 10:24 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223005" target="_blank">Designing AI Peers for Collaborative Mathematical Problem Solving with Middle School Students: A Participatory Design Study</a>
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Educational Support</span>
+            <span class="theme-tag" style="background:#2563eb;">🎓 Lrn by Teaching</span>
+            <span>P1 – Room 121</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Wenhan Lyu, Yimeng Wang, Murong Yue, Yifan Sun, Jennifer Suh, Meredith Kier, Ziyu Yao, Yixuan Zhang · William & Mary, George Mason</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Collaborative problem solving is a fundamental practice in middle-school mathematics. Through participatory design with students and teachers, this paper explores how AI peers should be designed to support collaborative mathematical problem solving — surfacing children's expectations, trust dynamics, and design preferences for AI as a learning companion.</div>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222259" target="_blank">Endless Swipes and Recommendations: The Impact of Short-Form Video Platforms on Context-Switching and Children's Working Memory</a>
+            🏅
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">Interactive Systems for Teaching, Learning, and Concept Formation</span>
+            <span class="theme-tag" style="background:#059669;">📖 AI in Education</span>
+            <span>P1 – Room 134</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Cheryl Siy, Kihoon Jung, Seokwoo Song, Kwan Hong Lee, John Kim · KAIST, Samsung Research</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Short-form video platforms are increasingly popular with children, yet the rapid context-switching they induce may have cognitive consequences. This Honorable Mention paper investigates how endless swipes and algorithmic recommendations affect children's working memory, with important implications for the design of child-appropriate digital platforms.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Break & Snacks -->
+    <div class="time-slot">
+      <div class="time-label">10:30 AM<br>– 11:15 AM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">☕</div>
+          <div class="event-info">
+            <div class="event-name">Break &amp; Snacks</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Late Morning Papers 11:15–12:45 -->
+    <div class="sub-header">
+      <span>Late Morning · Paper Sessions</span>
+      <span class="paper-count">7 papers · 2 sessions</span>
+    </div>
+
+    <!-- 11:15–11:27 — CONFLICT -->
+    <div class="time-slot" style="margin-top:1rem;">
+      <div class="time-label">11:15 AM<br>– 11:27 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222765" target="_blank">ATTENPlay: A Game-Based Attention Network Test for Autistic Children</a>
+            🏅
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI, Learning and Inclusion in Education</span>
+            <span class="theme-tag" style="background:#059669;">📖 AI in Education</span>
+            <span>P1 – Room 114</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Yuying Wan, Xin Tong, Kaishun Wu · HKUST Guangzhou</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Atypical attention in Autism Spectrum Disorder presents challenges to children's learning and development. ATTENPlay is a game-based attention network test designed specifically for autistic children, transforming clinical attention assessment into an engaging and accessible interactive experience while producing reliable diagnostic data.</div>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222577" target="_blank">MuseForge: Enhancing Creative Learning in Digital Museum Education with Generative AI</a>
+            <span class="badge badge-conflict">Conflict</span>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI, Motivation and Learning</span>
+            <span class="theme-tag" style="background:#be185d;">🎨 Product Design</span>
+            <span>P1 – Room 123</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Weiyue Lin, Xiao Hu · HKU, University of Arizona</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Creative learning has enriched on-site museum education by fostering engagement, exploration, and active inquiry. MuseForge brings this paradigm to digital museum education through Generative AI, enabling learners to engage creatively with museum collections in ways that extend beyond passive viewing.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 11:27–11:39 -->
+    <div class="time-slot">
+      <div class="time-label">11:27 AM<br>– 11:39 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/222905" target="_blank">Hybrid LLM-Embedded Dialogue Agents for Learner Reflection: Designing Responsive and Theory-Driven Interactions</a>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI, Motivation and Learning</span>
+            <span class="theme-tag" style="background:#2563eb;">🎓 Lrn by Teaching</span>
+            <span>P1 – Room 123</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Paras Sharma, Yueping Sha, Janet Bih, Brayden Yan, Jess A Turner, Nicole Balay, Hubert O. Asare, Angela E.B. Stewart, Erin Walker · U Pittsburgh, UMD, CMU, Bowie State</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Dialogue systems have long supported learner reflection, with theoretically grounded rule-based designs offering reliability. This paper presents hybrid LLM-embedded dialogue agents that combine the flexibility of LLMs with principled, theory-driven interaction structures — producing more responsive and pedagogically sound reflection experiences.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 11:39–11:51 -->
+    <div class="time-slot">
+      <div class="time-label">11:39 AM<br>– 11:51 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223075" target="_blank">EdTech for Last Mile Learners in the Global South: Navigating Technological and Motivational Learning Insights with Radios and Mobile Phones</a>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI, Motivation and Learning</span>
+            <span class="theme-tag" style="background:#059669;">📖 AI in Education</span>
+            <span>P1 – Room 123</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Christine Kwon, Dieyu Ouyang, Lingkan Wang, Debbie Eleene Conejo, Phenyo Phemelo Moletsane, John Stamper, Amy Ogan · Carnegie Mellon</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Educational technology solutions have shown promise for expanding opportunity to underserved learners. This paper examines EdTech deployments for "last mile" learners in the Global South delivered via radios and mobile phones, navigating the unique technological constraints and motivational dynamics of these contexts.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 11:51–12:03 -->
+    <div class="time-slot">
+      <div class="time-label">11:51 AM<br>– 12:03 PM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223117" target="_blank">AI-Mediated Feedback Improves Student Revisions: A Randomized Trial with FeedbackWriter in a Large Undergraduate Course</a>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI, Motivation and Learning</span>
+            <span class="theme-tag" style="background:#059669;">📖 AI in Education</span>
+            <span>P1 – Room 123</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Xinyi Lu, Kexin Phyllis Ju, Mitchell Dudley, Larissa Sano, Xu Wang · University of Michigan</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">Despite growing interest in using LLMs to generate feedback on student writing, little is known about whether such feedback actually improves revisions. This randomized trial with FeedbackWriter in a large undergraduate course shows that AI-mediated feedback leads to measurable improvements in student revisions compared to control conditions.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 12:15–12:27 -->
+    <div class="time-slot">
+      <div class="time-label">12:15 PM<br>– 12:27 PM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223470" target="_blank">Starting From Scratch Again and Again: Tracing the Origins of High Schoolers' Negative Perceptions of Block-Based Programming</a>
+            🏆
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI, Learning and Inclusion in Education</span>
+            <span class="theme-tag" style="background:#059669;">📖 AI in Education</span>
+            <span>P1 – Room 114</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Caryn Tran, Kristin Fasiang, Max Kanwal, Eleanor O'Rourke · Northwestern, Stanford</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">As K–12 computer science expands in the United States, students encounter block-based programming environments like Scratch — yet many develop negative perceptions of them. This Best Paper traces the origins of high schoolers' negative attitudes toward block-based programming, surfacing how prior learning experiences, peer dynamics, and tool design shape these feelings over time.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 12:27–12:39 -->
+    <div class="time-slot">
+      <div class="time-label">12:27 PM<br>– 12:39 PM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-title">
+            <a href="https://programs.sigchi.org/chi/2026/program/content/223379" target="_blank">Not Everyone Wins with LLMs: Behavioral Patterns and Pedagogical Implications for AI Literacy in Programmatic Data Science</a>
+          </div>
+          <div class="paper-meta">
+            <span class="session-tag">AI, Motivation and Learning</span>
+            <span class="theme-tag" style="background:#7c3aed;">💻 Vibe Coding</span>
+            <span>P1 – Room 123</span>
+            <span>12 min</span>
+          </div>
+          <div class="paper-authors">Qianou Ma, Kenneth R Koedinger, Tongshuang Wu · Carnegie Mellon</div>
+          <div class="expand-hint">Click to show abstract</div>
+          <div class="paper-abstract">LLMs promise to democratize technical work in complex domains like programmatic data analysis, but not all learners benefit equally. This paper uncovers behavioral patterns in how learners use LLMs for data science tasks and draws out pedagogical implications for building AI literacy — particularly for those who may be left behind by the current wave of AI tools.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Lunch Break -->
+    <div class="time-slot">
+      <div class="time-label">12:45 PM<br>– 2:15 PM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">🍽️</div>
+          <div class="event-info">
+            <div class="event-name">Lunch Break</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Extended Program -->
+    <div class="time-slot">
+      <div class="time-label">2:15 PM<br>– 3:45 PM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">📋</div>
+          <div class="event-info">
+            <div class="event-name">Extended Program</div>
+            <div class="event-detail">Panels, SIGs, Workshops, Courses</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Break & Snacks -->
+    <div class="time-slot">
+      <div class="time-label">3:45 PM<br>– 4:30 PM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">☕</div>
+          <div class="event-info">
+            <div class="event-name">Break &amp; Snacks</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Extended Program 2 -->
+    <div class="time-slot">
+      <div class="time-label">4:30 PM<br>– 6:00 PM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">📋</div>
+          <div class="event-info">
+            <div class="event-name">Extended Program</div>
+            <div class="event-detail">Panels, SIGs, Workshops, Courses</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</details>
+
+<!-- ========== FRIDAY, APRIL 17 ========== -->
+<details class="day-section">
+  <summary>
+    <div class="day-header">
+      <span><span class="collapse-icon"></span> Friday, April 17</span>
+      <span class="paper-count">19 papers · 3 🏆 · 6 🏅</span>
+    </div>
+  </summary>
+
+  <div class="timeline">
+
+    <!-- Morning Papers 9:00–10:30 -->
+    <div class="sub-header">
+      <span>Morning · Paper Sessions</span>
+      <span class="paper-count">13 papers · 4 parallel sessions</span>
+    </div>
+
+    <!-- 9:00–9:12 — CONFLICT -->
+    <div class="time-slot" style="margin-top:1rem;">
+      <div class="time-label">9:00 AM<br>– 9:12 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">Education · R123</span>
+              <span class="badge badge-conflict">Conflict</span>
+            
+              <span class="theme-tag" style="background:#059669;">📖 AI in Education</span></div>
+            <div class="paper-title">Do Teachers Dream of GenAI Widening Educational (In)equality? Envisioning the Future of K-12 GenAI Education from Global Teachers' Perspectives</div>
+            <div class="paper-authors">Ruiwei Xiao, Qing Xiao, Xinying Hou, Phenyo Phemelo Moletsane, Hanqi Jane Li, Hong Shen, John Stamper · Carnegie Mellon, UMich, UCSD</div>
+          </div>
+          <div class="paper-abstract">
+            <p>Generative AI is rapidly entering K-12 classrooms worldwide, yet its implications for educational equity remain unclear. This paper explores global teachers' visions for the future of K-12 GenAI education, examining hopes and concerns around inequality, access, and pedagogical change across different regional and socioeconomic contexts.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">Learning in the AI Era · R131</span>
+              <span class="badge badge-conflict">Conflict</span>
+            
+              <span class="theme-tag" style="background:#059669;">📖 AI in Education</span></div>
+            <div class="paper-title">AskNow: An LLM-powered Interactive System for Real-Time Question Answering in Large-Scale Classrooms</div>
+            <div class="paper-authors">Ziqi Liu, Yuankun Wang, Hui-Ru Ho, Yuheng Wu, Yuhang Zhao, Bilge Mutlu · UW-Madison</div>
+          </div>
+          <div class="paper-abstract">
+            <p>In large-scale classrooms, students often struggle to ask questions due to limited instructor attention and social barriers. AskNow leverages LLMs to enable real-time, scalable question answering, aggregating student queries and providing immediate responses while keeping instructors informed of common confusion points.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 9:12–9:24 — CONFLICT -->
+    <div class="time-slot">
+      <div class="time-label">9:12 AM<br>– 9:24 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">Human-in-the-Loop ML · R111</span>
+              <span class="badge badge-best">🏆 Best Paper</span>
+              <span class="badge badge-conflict">Conflict</span>
+            
+              <span class="theme-tag" style="background:#059669;">📖 AI in Education</span></div>
+            <div class="paper-title">When Scaffolding Breaks: Investigating Student Interaction with LLM-Based Writing Support in Real-Time K-12 EFL Classrooms</div>
+            <div class="paper-authors">Junho Myung, Hyunseung Lim, Hana Oh, Hyoungwook Jin, Nayeon Kang, So-Yeon Ahn, Hwajung Hong, Alice Oh, Juho Kim · KAIST, UMich</div>
+          </div>
+          <div class="paper-abstract">
+            <p>LLMs are promising scaffolding tools for students' English writing skills, but real classroom deployments reveal breakdowns. This study investigates how K-12 EFL students interact with an LLM-based writing support system in live classroom settings, identifying failure modes and opportunities for more robust scaffolding design.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">Learning in the AI Era · R131</span>
+              <span class="badge badge-conflict">Conflict</span>
+            
+              <span class="theme-tag" style="background:#059669;">📖 AI in Education</span></div>
+            <div class="paper-title">Once Upon AI Time: Combining Narrative and Games for Early AI Literacy</div>
+            <div class="paper-authors">Isabella Pu, Megan Yi, Aikaterini Bagiati, Demetra Evangelou, Sharifa Alghowinem, Cynthia Breazeal · MIT, Wellesley</div>
+          </div>
+          <div class="paper-abstract">
+            <p>AI is increasingly present in children's lives, yet few tools support early AI literacy development. This paper presents a narrative-and-game-based approach to teach young children foundational AI concepts, evaluating its effectiveness in building intuitive understanding of how AI systems work.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 9:36–9:48 — CONFLICT -->
+    <div class="time-slot">
+      <div class="time-label">9:36 AM<br>– 9:48 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">Learning in the AI Era · R131</span>
+              <span class="badge badge-honorable">🏅 Honorable Mention</span>
+              <span class="badge badge-conflict">Conflict</span>
+            </div>
+            <div class="paper-title">NaviNote: Enabling In-situ Spatial Annotation Authoring to Support Exploration and Navigation for Blind and Low Vision People</div>
+            <div class="paper-authors">Ruijia Chen, Yuheng Wu, Charlie Houseago, Filipe Gaspar, Filippo Aleotti, Dorian Gálvez-López, Oliver Johnston, Diego Mazala, Guillermo Garcia-Hernando, Maryam Bandukda, Gabriel Brostow, Jessica Van Brummelen · UCL, Meta Reality Labs</div>
+          </div>
+          <div class="paper-abstract">
+            <p>GPS and smartphones enable location-based annotations that capture rich environmental context. NaviNote extends this to blind and low vision users, allowing in-situ spatial annotation authoring that supports independent exploration and navigation through annotated environmental information.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">Mindfulness &amp; Biofeedback · R132</span>
+              <span class="badge badge-best">🏆 Best Paper</span>
+              <span class="badge badge-conflict">Conflict</span>
+            </div>
+            <div class="paper-title">Stress Mindset Matters: Rethinking Mental Stress Detection with Multimodal Wearable Sensors</div>
+            <div class="paper-authors">Lakmal Meegahapola, Marios Constantinides, Zoran Radivojevic, Hongwei Li, Michael S Eggleston, Daniele Quercia · King's College London, CYENS</div>
+          </div>
+          <div class="paper-abstract">
+            <p>People's beliefs about stress — whether they view it as harmful or enhancing — fundamentally shape physiological responses. This paper rethinks wearable-based stress detection by incorporating stress mindset as a key variable, improving multimodal sensor models and revealing that mindset-aware detection significantly outperforms traditional approaches.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 9:48–10:00 — THREE-WAY CONFLICT -->
+    <div class="time-slot">
+      <div class="time-label">9:48 AM<br>– 10:00 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">Education · R123</span>
+              <span class="badge badge-honorable">🏅 Honorable Mention</span>
+              <span class="badge badge-conflict">Conflict ×3</span>
+            
+              <span class="theme-tag" style="background:#7c3aed;">💻 Vibe Coding</span></div>
+            <div class="paper-title">Barriers that Programming Instructors Face While Performing Emergency Pedagogical Design to Shape Student-AI Interactions with Generative AI Tools</div>
+            <div class="paper-authors">Sam Lau, Kianoosh Boroojeni, Harry Keeling, Jenn Marroquin · UCSD, FIU, Howard, Google</div>
+          </div>
+          <div class="paper-abstract">
+            <p>Generative AI tools are increasingly pervasive, pushing instructors to urgently redesign how students engage with AI in programming courses. This study identifies barriers instructors face during emergency pedagogical redesign, including uncertainty about AI capabilities, lack of institutional support, and difficulty anticipating student misuse patterns.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">Learning in the AI Era · R131</span>
+              <span class="badge badge-conflict">Conflict ×3</span>
+            
+              <span class="theme-tag" style="background:#0d9488;">🔬 Multidiscip. Collab</span></div>
+            <div class="paper-title">Codesigning Ripplet: an LLM-Assisted Assessment Authoring System Grounded in a Conceptual Model of Teachers' Workflows</div>
+            <div class="paper-authors">Yuan Cui, Annabel Marie Goldman, Jovy Zhou, Xiaolin Liu, Clarissa M Shieh, Joshua Yao, Mia Lillian Cheng, Matthew Kay, Fumeng Yang · Northwestern, UMD</div>
+          </div>
+          <div class="paper-abstract">
+            <p>Creating assessments is difficult for teachers. Ripplet is an LLM-assisted assessment authoring system co-designed with educators, grounded in a conceptual model of teachers' workflows. The system helps generate, refine, and organize assessments while preserving teacher agency and pedagogical intent.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">Mindfulness &amp; Biofeedback · R132</span>
+              <span class="badge badge-honorable">🏅 Honorable Mention</span>
+              <span class="badge badge-conflict">Conflict ×3</span>
+            
+              <span class="theme-tag" style="background:#d97706;">🤖 Social Agentic AI</span></div>
+            <div class="paper-title">MindfulAgents: Personalizing Mindfulness Meditation via an Expert-Aligned Multi-Agent System</div>
+            <div class="paper-authors">Mengyuan Wu, Zhihan Jiang, Yuang Fan, Richard Feng, Sahiti Dharmavaram, Mathew Polowitz, Shawn Fallon, Bashima Islam, Lizbeth Benson, Irene Tung, David Creswell, Xuhai "Orson" Xu · Columbia, HKU, CMU, WPI</div>
+          </div>
+          <div class="paper-abstract">
+            <p>Mindfulness meditation is evidence-based for mental health, but one-size-fits-all approaches fail many practitioners. MindfulAgents uses a multi-agent LLM system aligned with mindfulness experts to personalize meditation guidance, adapting session content, pacing, and focus to individual users' needs and preferences.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 10:00–10:12 — CONFLICT -->
+    <div class="time-slot">
+      <div class="time-label">10:00 AM<br>– 10:12 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">Human-in-the-Loop ML · R111</span>
+              <span class="badge badge-conflict">Conflict</span>
+            
+              <span class="theme-tag" style="background:#7c3aed;">💻 Vibe Coding</span></div>
+            <div class="paper-title">Data-Prompt Co-Evolution: Growing Test Sets to Refine LLM Behavior</div>
+            <div class="paper-authors">Minjae Lee, Minsuk Kahng · Yonsei University</div>
+          </div>
+          <div class="paper-abstract">
+            <p>LLMs are increasingly embedded in applications, and people can shape model behavior through prompting. This paper introduces a co-evolution framework where test sets and prompts are iteratively refined together, enabling more systematic human-in-the-loop improvement of LLM behavior in deployed applications.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">Learning in the AI Era · R131</span>
+              <span class="badge badge-conflict">Conflict</span>
+            
+              <span class="theme-tag" style="background:#0d9488;">🔬 Multidiscip. Collab</span></div>
+            <div class="paper-title">"Listen to the Teachers": Research-Based Personas for Translating Classroom Realities into Actionable HCI Design</div>
+            <div class="paper-authors">Petra Francesca Weixelbraun, Barbara Göbl, Ole Sejer Iversen, Fares Kayali · University of Vienna, Aarhus University</div>
+          </div>
+          <div class="paper-abstract">
+            <p>The HCI community is well positioned to address socio-technical issues in post-pandemic education, but classroom realities are complex. This paper presents research-based teacher personas derived from fieldwork, providing actionable design targets that bridge the gap between empirical classroom realities and practical HCI design recommendations.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 10:12–10:24 — THREE-WAY CONFLICT -->
+    <div class="time-slot">
+      <div class="time-label">10:12 AM<br>– 10:24 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">Education · R123</span>
+              <span class="badge badge-conflict">Conflict ×3</span>
+            
+              <span class="theme-tag" style="background:#059669;">📖 AI in Education</span></div>
+            <div class="paper-title">Navigating Uncertainties: How GenAI Developers Document Their Models on Open-Source Platforms</div>
+            <div class="paper-authors">Ningjing Tang, Megan Li, Amy Winecoff, Michael Madaio, Hoda Heidari, Hong Shen · Carnegie Mellon, Center for Democracy & Technology, Google</div>
+          </div>
+          <div class="paper-abstract">
+            <p>Model documentation is crucial for responsible AI development. This paper examines how GenAI developers document their models on open-source platforms, revealing patterns of uncertainty navigation, documentation gaps, and the challenges of conveying model limitations to downstream users and developers.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">Human-in-the-Loop ML · R111</span>
+              <span class="badge badge-conflict">Conflict ×3</span>
+            
+              <span class="theme-tag" style="background:#be185d;">🎨 Product Design</span></div>
+            <div class="paper-title">ClearFairy: Capturing Creative Workflows through Decision Structuring, In-Situ Questioning, and Rationale Inference</div>
+            <div class="paper-authors">Kihoon Son, DaEun Choi, Tae Soo Kim, Young-Ho Kim, Sangdoo Yun, Juho Kim · KAIST, NAVER AI Lab</div>
+          </div>
+          <div class="paper-abstract">
+            <p>Capturing professionals' decision-making in creative workflows (e.g., UI/UX design) is essential for reflection and knowledge transfer. ClearFairy structures creative decisions, asks in-situ questions during the workflow, and infers rationale — making tacit design reasoning visible and shareable.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+        <div class="paper-card has-conflict" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">Learning in the AI Era · R131</span>
+              <span class="badge badge-conflict">Conflict ×3</span>
+            
+              <span class="theme-tag" style="background:#2563eb;">🎓 Lrn by Teaching</span></div>
+            <div class="paper-title">CareerCraft: Supporting New Graduates on Job Hunting with LLM-Assisted Self-Construction of Career Profile</div>
+            <div class="paper-authors">Xinyue Qi, Chengzhong Liu, Xiangyu Long, Zhizhuo Kou, Sirui Han, Yike Guo · HKUST, HK Polytechnic</div>
+          </div>
+          <div class="paper-abstract">
+            <p>Starting a job hunt is challenging for new graduates who struggle to translate experiences into compelling profiles. CareerCraft uses LLMs to assist self-construction of career profiles, guiding graduates through reflecting on experiences, identifying strengths, and articulating value propositions for target roles.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Break 10:30–11:15 -->
+    <div class="time-slot">
+      <div class="time-label">10:30 AM<br>– 11:15 AM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">☕</div>
+          <div class="event-info">
+            <div class="event-name">Break &amp; Snacks</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Late Morning Papers 11:15–12:45 -->
+    <div class="sub-header">
+      <span>Late Morning · Paper Sessions</span>
+      <span class="paper-count">6 papers · 2 parallel sessions</span>
+    </div>
+
+    <!-- 11:27–11:39 -->
+    <div class="time-slot" style="margin-top:1rem;">
+      <div class="time-label">11:27 AM<br>– 11:39 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">AI Tutors &amp; Learning Systems · R123</span>
+              <span class="badge badge-honorable">🏅 Honorable Mention</span>
+            
+              <span class="theme-tag" style="background:#2563eb;">🎓 Lrn by Teaching</span></div>
+            <div class="paper-title">Will They Try Again? A Large-Scale RCT on Scaffolds that Support Persistence in an Intelligent Tutoring System</div>
+            <div class="paper-authors">Michael W Asher, Yumou Wei, Adam Daniel Reynolds, Amy Ogan, Paulo F. Carvalho · Carnegie Mellon, Siyavula Foundation</div>
+          </div>
+          <div class="paper-abstract">
+            <p>Persistence after failure is critical for learning, but students in intelligent tutoring systems often disengage after mistakes. This large-scale RCT tests scaffolding interventions designed to support post-failure persistence, revealing which strategies effectively encourage students to try again and what factors moderate their impact.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 11:39–11:51 -->
+    <div class="time-slot">
+      <div class="time-label">11:39 AM<br>– 11:51 AM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">AI Tutors &amp; Learning Systems · R123</span>
+              <span class="badge badge-best">🏆 Best Paper</span>
+            
+              <span class="theme-tag" style="background:#2563eb;">🎓 Lrn by Teaching</span></div>
+            <div class="paper-title">Novobo: Supporting Teachers' Peer Learning of Instructional Gestures by Teaching a Mentee AI-Agent Together</div>
+            <div class="paper-authors">Jiaqi Jiang, Kexin Huang, Huan Zeng, Duo Gong, Roberto Martinez-Maldonado, Pengcheng An · SUSTech, Beijing Normal, Monash</div>
+          </div>
+          <div class="paper-abstract">
+            <p>Instructional gestures are essential for teaching, enhancing communication and student comprehension. Novobo supports teachers' peer learning of these gestures by having pairs of teachers collaboratively instruct a mentee AI agent, creating a reflective, low-stakes environment for practicing and refining nonverbal teaching skills.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 12:03–12:15 -->
+    <div class="time-slot">
+      <div class="time-label">12:03 PM<br>– 12:15 PM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">AI Tutors &amp; Learning Systems · R123</span>
+              <span class="badge badge-honorable">🏅 Honorable Mention</span>
+            
+              <span class="theme-tag" style="background:#2563eb;">🎓 Lrn by Teaching</span></div>
+            <div class="paper-title">Designing Scaffolding Cards to Facilitate LLM-Based Socratic Instruction: An Exploratory Study of Response Strategies to Support Learning</div>
+            <div class="paper-authors">Lujin Mao, Linyuan Dong, Wenan Li, Xiangen Hu, Kun-Pyo Lee, Zhibin Zhou · HK Polytechnic, HKUST Guangzhou, University of Memphis</div>
+          </div>
+          <div class="paper-abstract">
+            <p>Over-reliance on LLM-generated answers risks undermining critical thinking development. This paper designs scaffolding cards that help facilitators guide LLM-based Socratic instruction, prompting students toward deeper reasoning rather than direct answers — and explores response strategies that best support durable learning.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 12:15–12:27 -->
+    <div class="time-slot">
+      <div class="time-label">12:15 PM<br>– 12:27 PM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">Group Work · R127</span>
+              <span class="badge badge-honorable">🏅 Honorable Mention</span>
+            
+              <span class="theme-tag" style="background:#0d9488;">🔬 Multidiscip. Collab</span></div>
+            <div class="paper-title">KNIT: Computational Boundary Objects for Real-Time Convergence in Interdisciplinary Teams</div>
+            <div class="paper-authors">Echo Chuqiao Wan, Carrie Yin, Akira Ito, Ziwei Gao, Jasper Jia, Yuki Taoka, Shigeki Saito, Malak Sadek, Céline Mougenot · Imperial College London, Cambridge, Tokyo Tech</div>
+          </div>
+          <div class="paper-abstract">
+            <p>Interdisciplinary teams developing complex healthtech face difficulty aligning across disciplinary boundaries. KNIT introduces computational boundary objects that support real-time convergence — shared representations that evolve during collaboration to help teams from different fields negotiate meaning and reach actionable alignment.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 12:27–12:39 -->
+    <div class="time-slot">
+      <div class="time-label">12:27 PM<br>– 12:39 PM</div>
+      <div class="slot-papers">
+
+        <div class="paper-card" onclick="this.classList.toggle('expanded')">
+          <div class="paper-header">
+            <div>
+              <span class="session-tag">AI Tutors &amp; Learning Systems · R123</span>
+            
+              <span class="theme-tag" style="background:#2563eb;">🎓 Lrn by Teaching</span></div>
+            <div class="paper-title">AmIWrite: Exploring Scalable One-on-One Handwriting-Based Tutoring for Mathematical Problem-Solving with an LLM-Powered AI Tutor</div>
+            <div class="paper-authors">Ziyi Liu, Yuzhao Chen, Haoyu Ji, Runlin Duan, Zhengzhe Zhu, Xiyun Hu, Kylie Peppler, Karthik Ramani · Purdue, UC Irvine</div>
+          </div>
+          <div class="paper-abstract">
+            <p>Real-time handwriting interactions between tutors and students — where tutors observe individual problem-solving steps — are powerful but unscalable. AmIWrite uses an LLM-powered AI tutor to provide scalable one-on-one handwriting-based tutoring for math, responding to students' step-by-step written work in real time.</p>
+            <p class="expand-hint">Click to collapse</p>
+          </div>
+          <p class="expand-hint">Click to expand abstract</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Lunch 12:45–2:15 -->
+    <div class="time-slot">
+      <div class="time-label">12:45 PM<br>– 2:15 PM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">🍽️</div>
+          <div class="event-info">
+            <div class="event-name">Lunch Break</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Extended Program 2:15–3:45 -->
+    <div class="time-slot">
+      <div class="time-label">2:15 PM<br>– 3:45 PM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">📋</div>
+          <div class="event-info">
+            <div class="event-name">Extended Program</div>
+            <div class="event-detail">Panels, SIGs, Workshops, Courses</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Break 3:45–4:30 -->
+    <div class="time-slot">
+      <div class="time-label">3:45 PM<br>– 4:30 PM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">☕</div>
+          <div class="event-info">
+            <div class="event-name">Break &amp; Snacks</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Keynote & Closing 4:30–6:00 -->
+    <div class="time-slot">
+      <div class="time-label">4:30 PM<br>– 6:00 PM</div>
+      <div class="slot-papers">
+        <div class="event-card">
+          <div class="event-emoji">🎤</div>
+          <div class="event-info">
+            <div class="event-name">Keynote &amp; Closing Plenary</div>
+            <div class="event-detail">Auditorium</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</details>
+
+<div style="text-align:center; margin-top:2rem; font-size:0.78rem; color:var(--muted);">
+  Generated March 29, 2026 · 69 papers + 1 workshop · Click cards to expand abstracts · Click day headers to collapse/expand
+</div>
+
+</body>
+</html>
